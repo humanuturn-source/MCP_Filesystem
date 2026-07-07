@@ -23,6 +23,8 @@ cd local-mcp-agent
 ```
 
 Your resulting folder structure will look like this:
+
+```text
 local-mcp-agent/
 ├── app.py              # Flask Web Interface & Agent Logic
 ├── Dockerfile          # Linux Image Construction Layers
@@ -31,6 +33,7 @@ local-mcp-agent/
 └── mcp-data/
     ├── ActiveWorkspace/ # Target directory for agent file output modifications
     └── ReadOnlyDocs/    # Guarded storage folder containing context material (e.g., sample.txt)
+```
 
 ---
 
