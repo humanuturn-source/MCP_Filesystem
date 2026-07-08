@@ -180,10 +180,6 @@ HTML_TEMPLATE = """
 """
 
 def extract_target_filename(prompt_text):
-    """
-    Parses the user prompt to dynamically extract filenames like welcome.txt or summary.md.
-    Defaults to summary.md if no distinct filename layout matches.
-    """
     match = re.search(r'(?:names|file|to|create)\s+([a-zA-Z0-9_\-\.]+)', prompt_text, re.IGNORECASE)
     if match:
         filename = match.group(1).strip()
@@ -191,6 +187,26 @@ def extract_target_filename(prompt_text):
         if '.' in filename:
             return filename
     return "summary.md"
+
+def build_recursive_file_tree(base_directory):
+    """
+    Recursively maps directories, subfolders, and files down the system path tree,
+    mirroring the comprehensive structural overview behavior of 'ls -lR'.
+    """
+    if not os.path.exists(base_directory):
+        return {}
+    
+    tree_map = {}
+    for root, dirs, files in os.walk(base_directory):
+        # Calculate the relative structural root path anchor point inside the volume mount
+        relative_path = os.path.relpath(root, base_directory)
+        current_node = "." if relative_path == "." else relative_path
+        
+        tree_map[current_node] = {
+            "subfolders": sorted(dirs),
+            "files": sorted(files)
+        }
+    return tree_map
 
 async def execute_mcp_workflow(user_prompt, model_name):
     logs = []
@@ -200,11 +216,13 @@ async def execute_mcp_workflow(user_prompt, model_name):
     logs.append("⚙️ Initialize: Starting localized Model Context Protocol handler...")
     logs.append(f"🎯 Target File Identified: '{target_file}'")
     
-    ro_files = os.listdir(RO_DIR) if os.path.exists(RO_DIR) else []
-    rw_files = os.listdir(RW_DIR) if os.path.exists(RW_DIR) else []
+    # Perform deep-recursive directory scans matching 'ls -lR'
+    ro_tree = build_recursive_file_tree(RO_DIR)
+    rw_tree = build_recursive_file_tree(RW_DIR)
     
-    logs.append(f"📁 Scan [ReadOnlyDocs]: {ro_files if ro_files else '[Empty Folder]'}")
-    logs.append(f"📁 Scan [ActiveWorkspace]: {rw_files if rw_files else '[Empty Folder]'}")
+    # Log the complete structural layout mapped out for transparency inside the dashboard box
+    logs.append(f"📁 Deep-Scan [ReadOnlyDocs]: {list(ro_tree.keys())}")
+    logs.append(f"📁 Deep-Scan [ActiveWorkspace]: {list(rw_tree.keys())}")
 
     file_contents = ""
     sample_path = os.path.join(RO_DIR, "sample.txt")
@@ -214,8 +232,8 @@ async def execute_mcp_workflow(user_prompt, model_name):
             
     system_instruction = (
         "SYSTEM CONTEXT ENVIRONMENT RULES:\n"
-        f"1. The EXACT files physically present in 'ReadOnlyDocs' are: {ro_files}\n"
-        f"2. The EXACT files physically present in 'ActiveWorkspace' are: {rw_files}\n"
+        f"1. The FULL recursive directory tree map for 'ReadOnlyDocs' is: {ro_tree}\n"
+        f"2. The FULL recursive directory tree map for 'ActiveWorkspace' is: {rw_tree}\n"
         f"3. You are performing an action to populate the file: '{target_file}'.\n"
         "4. Output only the content intended to live inside the file. Do not wrap the text response in explanation commentary unless desired inside the document."
     )
@@ -249,7 +267,6 @@ async def execute_mcp_workflow(user_prompt, model_name):
                     "content": llm_response
                 })
         
-        # Enhanced target details telemetry log
         logs.append("\n==============================================")
         logs.append("🎉 SUCCESS: FILE PERSISTENCE WORKING")
         logs.append(f"📁 Folder Location : ActiveWorkspace")
@@ -264,7 +281,6 @@ async def execute_mcp_workflow(user_prompt, model_name):
         with open(os.path.join(RW_DIR, target_file), "w", encoding="utf-8") as f:
             f.write(llm_response)
             
-        # Enhanced fallback details telemetry log
         logs.append("\n==============================================")
         logs.append("🎉 SUCCESS: SECURED VIA CONTAINER FALLBACK")
         logs.append(f"📁 Folder Location : ActiveWorkspace (Direct Volume)")
